@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Multiplayer Dot Game</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            background-color: #222;
+            color: white;
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        
+        canvas {
+            border: 2px solid #444;
+            background-color: #111;
+            margin: 20px 0;
+        }
+        
+        .info {
+            text-align: center;
+            margin: 10px 0;
+        }
+        
+        .controls {
+            text-align: center;
+            margin: 10px 0;
+            font-size: 14px;
+            color: #ccc;
+        }
+        
+        .status {
+            color: #0f0;
+            font-weight: bold;
+        }
+        
+        .error {
+            color: #f00;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <h1>Multiplayer Dot Game</h1>
+    <div class="info">
+        <div id="status" class="status">Connecting...</div>
+        <div id="playerCount">Players: 0</div>
+    </div>
+    <canvas id="gameCanvas" width="800" height="600"></canvas>
+    <div class="controls">
+        Use arrow keys or WASD to move your dot
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const statusEl = document.getElementById('status');
+        const playerCountEl = document.getElementById('playerCount');
+
+        let socket;
+        let myPlayerId = null;
+        let players = {};
+        let myPlayer = { x: 400, y: 300 };
+
+        // WebSocket connection
+        function connect() {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${protocol}//${window.location.host}/ws`;
+            
+            socket = new WebSocket(wsUrl);
+
+            socket.onopen = function() {
+                statusEl.textContent = 'Connected';
+                statusEl.className = 'status';
+            };
+
+            socket.onmessage = function(event) {
+                const message = JSON.parse(event.data);
+                
+                if (message.type === 'welcome') {
+                    myPlayerId = message.data.playerId;
+                } else if (message.type === 'gameState') {
+                    players = message.data.players;
+                    
+                    // Update our player reference
+                    if (myPlayerId && players[myPlayerId]) {
+                        myPlayer = players[myPlayerId];
+                    }
+                    
+                    updatePlayerCount();
+                    draw();
+                }
+            };
+
+            socket.onclose = function() {
+                statusEl.textContent = 'Disconnected - Reconnecting...';
+                statusEl.className = 'error';
+                // Attempt to reconnect after 2 seconds
+                setTimeout(connect, 2000);
+            };
+
+            socket.onerror = function(error) {
+                statusEl.textContent = 'Connection Error';
+                statusEl.className = 'error';
+            };
+        }
+
+        function updatePlayerCount() {
+            const count = Object.keys(players).length;
+            playerCountEl.textContent = `Players: ${count}`;
+        }
+
+        function sendMove(x, y) {
+            if (socket && socket.readyState === WebSocket.OPEN) {
+                socket.send(JSON.stringify({
+                    type: 'move',
+                    data: { x: x, y: y }
+                }));
+            }
+        }
+
+        function draw() {
+            // Clear canvas
+            ctx.fillStyle = '#111';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Draw all players
+            for (const id in players) {
+                const player = players[id];
+                
+                ctx.fillStyle = player.color;
+                ctx.beginPath();
+                ctx.arc(player.x, player.y, 15, 0, 2 * Math.PI);
+                ctx.fill();
+
+                // Draw border for current player
+                if (id === myPlayerId) {
+                    ctx.strokeStyle = '#fff';
+                    ctx.lineWidth = 3;
+                    ctx.beginPath();
+                    ctx.arc(player.x, player.y, 18, 0, 2 * Math.PI);
+                    ctx.stroke();
+                }
+            }
+        }
+
+        // Keyboard controls
+        const keys = {};
+        const moveSpeed = 5;
+
+        document.addEventListener('keydown', function(e) {
+            keys[e.key.toLowerCase()] = true;
+            e.preventDefault();
+        });
+
+        document.addEventListener('keyup', function(e) {
+            keys[e.key.toLowerCase()] = false;
+            e.preventDefault();
+        });
+
+        function handleMovement() {
+            if (!myPlayer) return;
+
+            let newX = myPlayer.x;
+            let newY = myPlayer.y;
+
+            if (keys['arrowup'] || keys['w']) {
+                newY -= moveSpeed;
+            }
+            if (keys['arrowdown'] || keys['s']) {
+                newY += moveSpeed;
+            }
+            if (keys['arrowleft'] || keys['a']) {
+                newX -= moveSpeed;
+            }
+            if (keys['arrowright'] || keys['d']) {
+                newX += moveSpeed;
+            }
+
+            // Boundary checking
+            newX = Math.max(15, Math.min(canvas.width - 15, newX));
+            newY = Math.max(15, Math.min(canvas.height - 15, newY));
+
+            // Only send move if position changed
+            if (newX !== myPlayer.x || newY !== myPlayer.y) {
+                sendMove(newX, newY);
+            }
+        }
+
+        // Game loop
+        setInterval(handleMovement, 1000 / 60); // 60 FPS
+
+        // Start the game
+        connect();
+    </script>
+</body>
+</html>
