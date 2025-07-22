@@ -179,8 +179,8 @@ func main() {
 		}
 	}
 
-	// Serve static files
-	http.Handle("/", http.FileServer(http.Dir("./static/")))
+	// Serve docs files (works for both local testing and GitHub Pages)
+	http.Handle("/", http.FileServer(http.Dir("./docs/")))
 
 	// WebSocket endpoint
 	http.HandleFunc("/ws", handleWebSocket)
