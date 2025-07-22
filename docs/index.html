@@ -43,81 +43,26 @@
             color: #f00;
             font-weight: bold;
         }
-        
-        .server-config {
+
+        .server-info {
             background: #333;
-            padding: 15px;
+            padding: 10px;
             border-radius: 5px;
             margin: 10px 0;
-            display: flex;
-            gap: 10px;
-            align-items: center;
-            flex-wrap: wrap;
-            justify-content: center;
-        }
-        
-        input {
-            padding: 8px;
-            border: 1px solid #555;
-            background: #444;
-            color: white;
-            border-radius: 3px;
-            min-width: 300px;
-        }
-        
-        button {
-            padding: 8px 15px;
-            background: #0066cc;
-            color: white;
-            border: none;
-            border-radius: 3px;
-            cursor: pointer;
-        }
-        
-        button:hover {
-            background: #0077dd;
-        }
-        
-        button:disabled {
-            background: #666;
-            cursor: not-allowed;
-        }
-
-        .instructions {
-            background: #444;
-            padding: 15px;
-            border-radius: 5px;
-            margin: 10px 0;
-            max-width: 600px;
             font-size: 14px;
-            line-height: 1.5;
-        }
-
-        .instructions h3 {
-            margin-top: 0;
-            color: #0ff;
+            color: #ccc;
         }
     </style>
 </head>
 <body>
     <h1>Multiplayer Dot Game</h1>
     
-    <div class="instructions">
-        <h3>How to connect:</h3>
-        <p><strong>1.</strong> The game host runs the server on their computer</p>
-        <p><strong>2.</strong> Host shares their server URL (example: <code>ws://192.168.1.35:3000/ws</code>)</p>
-        <p><strong>3.</strong> Enter the server URL below and click Connect</p>
-        <p><strong>4.</strong> Move your dot with arrow keys or WASD</p>
-    </div>
-    
-    <div class="server-config">
-        <label>Server URL:</label>
-        <input type="text" id="serverUrl" placeholder="ws://192.168.1.35:3000/ws" value="">
-        <button id="connectBtn" onclick="connectToServer()">Connect</button>
+    <div class="server-info">
+        🎮 Auto-connecting to game server...
     </div>
     
     <div class="info">
-        <div id="status" class="error">Not Connected</div>
+        <div id="status" class="status">Connecting...</div>
         <div id="playerCount">Players: 0</div>
     </div>
     <canvas id="gameCanvas" width="800" height="600"></canvas>
@@ -130,57 +75,48 @@
         const ctx = canvas.getContext('2d');
         const statusEl = document.getElementById('status');
         const playerCountEl = document.getElementById('playerCount');
-        const serverUrlInput = document.getElementById('serverUrl');
-        const connectBtn = document.getElementById('connectBtn');
 
         let socket;
         let myPlayerId = null;
         let players = {};
         let myPlayer = { x: 400, y: 300 };
 
-        // Try to detect if we're running locally
-        function getDefaultServerUrl() {
-            if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-                return 'ws://localhost:3000/ws';
-            }
-            // For GitHub Pages, load from localStorage or leave empty
-            return localStorage.getItem('gameServerUrl') || '';
+        // Auto-detect server URL
+        function getServerUrl() {
+            // Try multiple possible server URLs
+            const possibleServers = [
+                'ws://192.168.1.35:3000/ws',     // Your current IP
+                'ws://192.168.1.35:8443/ws',     // HTTPS WebSocket
+                'wss://192.168.1.35:8443/ws',    // Secure WebSocket
+                'ws://localhost:3000/ws',        // Local fallback
+            ];
+            
+            return possibleServers;
         }
 
-        // Initialize server URL
-        serverUrlInput.value = getDefaultServerUrl();
+        // WebSocket connection with auto-retry
+        function connect() {
+            const servers = getServerUrl();
+            tryConnect(servers, 0);
+        }
 
-        // WebSocket connection
-        function connectToServer() {
-            const serverUrl = serverUrlInput.value.trim();
-            if (!serverUrl) {
-                alert('Please enter a server URL');
+        function tryConnect(servers, index) {
+            if (index >= servers.length) {
+                statusEl.textContent = 'Unable to connect to any server';
+                statusEl.className = 'error';
+                // Retry after 5 seconds
+                setTimeout(() => connect(), 5000);
                 return;
             }
 
-            // Save to localStorage for next time
-            localStorage.setItem('gameServerUrl', serverUrl);
-
-            if (socket) {
-                socket.close();
-            }
-
-            connect(serverUrl);
-        }
-
-        function connect(wsUrl) {
-            if (!wsUrl) {
-                wsUrl = serverUrlInput.value.trim();
-            }
-
-            statusEl.textContent = 'Connecting...';
+            const wsUrl = servers[index];
+            statusEl.textContent = `Connecting to ${wsUrl}...`;
             statusEl.className = 'status';
-            connectBtn.disabled = true;
             
             socket = new WebSocket(wsUrl);
 
             socket.onopen = function() {
-                statusEl.textContent = 'Connected';
+                statusEl.textContent = `Connected to ${wsUrl}`;
                 statusEl.className = 'status';
             };
 
@@ -203,15 +139,15 @@
             };
 
             socket.onclose = function() {
-                statusEl.textContent = 'Disconnected';
+                statusEl.textContent = 'Disconnected - Trying next server...';
                 statusEl.className = 'error';
-                connectBtn.disabled = false;
+                // Try next server
+                setTimeout(() => tryConnect(servers, index + 1), 1000);
             };
 
             socket.onerror = function(error) {
-                statusEl.textContent = 'Connection Error - Check server URL';
-                statusEl.className = 'error';
-                connectBtn.disabled = false;
+                // Try next server immediately
+                socket.close();
             };
         }
 
@@ -300,17 +236,8 @@
         // Game loop
         setInterval(handleMovement, 1000 / 60); // 60 FPS
 
-        // Auto-connect if running locally
-        if (getDefaultServerUrl() && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
-            connectToServer();
-        }
-
-        // Allow Enter key to connect
-        serverUrlInput.addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') {
-                connectToServer();
-            }
-        });
+        // Auto-connect when page loads
+        connect();
     </script>
 </body>
 </html>
