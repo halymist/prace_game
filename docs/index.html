@@ -83,15 +83,20 @@
 
         // Auto-detect server URL
         function getServerUrl() {
-            // Try multiple possible server URLs
-            const possibleServers = [
-                'ws://192.168.1.35:3000/ws',     // Your current IP
-                'ws://192.168.1.35:8443/ws',     // HTTPS WebSocket
-                'wss://192.168.1.35:8443/ws',    // Secure WebSocket
-                'ws://localhost:3000/ws',        // Local fallback
-            ];
-            
-            return possibleServers;
+            // For HTTPS sites (like GitHub Pages), prioritize secure connections
+            if (window.location.protocol === 'https:') {
+                return [
+                    'wss://192.168.1.35:8443/ws',    // Secure WebSocket (HTTPS)
+                    'ws://192.168.1.35:3000/ws',     // HTTP fallback (may be blocked)
+                ];
+            } else {
+                // For HTTP sites, try HTTP first
+                return [
+                    'ws://192.168.1.35:3000/ws',     // HTTP WebSocket
+                    'wss://192.168.1.35:8443/ws',    // Secure WebSocket
+                    'ws://localhost:3000/ws',        // Local fallback
+                ];
+            }
         }
 
         // WebSocket connection with auto-retry
