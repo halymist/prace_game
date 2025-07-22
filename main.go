@@ -6,7 +6,6 @@ import (
 	"log"
 	"math/rand"
 	"net/http"
-	"os"
 	"sync"
 	"time"
 
@@ -171,31 +170,13 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 func main() {
 	rand.Seed(time.Now().UnixNano())
 
-	// Generate self-signed certificate if it doesn't exist
-	if _, err := os.Stat("server.crt"); os.IsNotExist(err) {
-		log.Println("Generating self-signed certificate...")
-		if err := generateSelfSignedCert(); err != nil {
-			log.Printf("Failed to generate certificate: %v", err)
-		}
-	}
-
-	// Serve docs files (works for both local testing and GitHub Pages)
+	// Serve docs files
 	http.Handle("/", http.FileServer(http.Dir("./docs/")))
 
 	// WebSocket endpoint
 	http.HandleFunc("/ws", handleWebSocket)
 
-	// Start HTTPS server
-	go func() {
-		fmt.Println("HTTPS Server starting on :8443")
-		fmt.Println("Open https://localhost:8443 in your browser")
-		fmt.Println("For network access: https://192.168.1.35:8443")
-		if err := http.ListenAndServeTLS(":8443", "server.crt", "server.key", nil); err != nil {
-			log.Printf("HTTPS server failed: %v", err)
-		}
-	}()
-
-	// Start HTTP server as fallback
+	// Start HTTP server
 	fmt.Println("HTTP Server starting on :3000")
 	fmt.Println("Open http://localhost:3000 in your browser")
 	fmt.Println("For network access: http://192.168.1.35:3000")

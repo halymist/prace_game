@@ -70,7 +70,7 @@
         Use arrow keys or WASD to move your dot
     </div>
 
-    
+
     <script>
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
@@ -82,22 +82,9 @@
         let players = {};
         let myPlayer = { x: 400, y: 300 };
 
-        // Auto-detect server URL
+        // Simple direct connection
         function getServerUrl() {
-            // For HTTPS sites (like GitHub Pages), prioritize secure connections
-            if (window.location.protocol === 'https:') {
-                return [
-                    'wss://192.168.1.35:8443/ws',    // Secure WebSocket (HTTPS)
-                    'ws://192.168.1.35:3000/ws',     // HTTP fallback (may be blocked)
-                ];
-            } else {
-                // For HTTP sites, try HTTP first
-                return [
-                    'ws://192.168.1.35:3000/ws',     // HTTP WebSocket
-                    'wss://192.168.1.35:8443/ws',    // Secure WebSocket
-                    'ws://localhost:3000/ws',        // Local fallback
-                ];
-            }
+            return ['ws://192.168.1.35:3000/ws'];
         }
 
         // WebSocket connection with auto-retry
