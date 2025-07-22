@@ -70,16 +70,21 @@ For others on your network to connect:
 ## 📁 Project Structure
 
 ```
-├── docs/                 # GitHub Pages client
-│   ├── index.html       # Web client that connects to any server
+├── docs/                 # 🌐 GitHub Pages (for sharing)
+│   ├── index.html       # Client with manual server URL input
 │   └── README.md        # GitHub Pages documentation
-├── static/              # Local development client  
-│   └── index.html       # Auto-connects to localhost
-├── main.go              # Go WebSocket server
-├── cert.go              # HTTPS certificate generation
-├── go.mod               # Go module dependencies
-└── README.md            # This file
+├── static/              # 💻 Local development (for testing)
+│   └── index.html       # Auto-connects to localhost server
+├── main.go              # 🖥️ Go WebSocket server
+├── cert.go              # 🔐 HTTPS certificate generation
+├── go.mod               # 📦 Go module dependencies
+└── README.md            # 📖 This file
 ```
+
+### File Purposes:
+- **`docs/index.html`**: For players connecting via GitHub Pages (requires manual server URL)
+- **`static/index.html`**: For local development and testing (auto-connects to localhost)
+- Both files are needed for different use cases!
 
 ## 🎯 Controls
 
