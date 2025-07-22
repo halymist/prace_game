@@ -52,6 +52,8 @@
             display: flex;
             gap: 10px;
             align-items: center;
+            flex-wrap: wrap;
+            justify-content: center;
         }
         
         input {
@@ -60,6 +62,7 @@
             background: #444;
             color: white;
             border-radius: 3px;
+            min-width: 300px;
         }
         
         button {
@@ -79,10 +82,33 @@
             background: #666;
             cursor: not-allowed;
         }
+
+        .instructions {
+            background: #444;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 10px 0;
+            max-width: 600px;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        .instructions h3 {
+            margin-top: 0;
+            color: #0ff;
+        }
     </style>
 </head>
 <body>
     <h1>Multiplayer Dot Game</h1>
+    
+    <div class="instructions">
+        <h3>How to connect:</h3>
+        <p><strong>1.</strong> The game host runs the server on their computer</p>
+        <p><strong>2.</strong> Host shares their server URL (example: <code>ws://192.168.1.35:3000/ws</code>)</p>
+        <p><strong>3.</strong> Enter the server URL below and click Connect</p>
+        <p><strong>4.</strong> Move your dot with arrow keys or WASD</p>
+    </div>
     
     <div class="server-config">
         <label>Server URL:</label>
@@ -112,13 +138,13 @@
         let players = {};
         let myPlayer = { x: 400, y: 300 };
 
-        // Try to detect if we're running locally or on GitHub Pages
+        // Try to detect if we're running locally
         function getDefaultServerUrl() {
             if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
                 return 'ws://localhost:3000/ws';
             }
-            // For GitHub Pages, user needs to input their server URL
-            return '';
+            // For GitHub Pages, load from localStorage or leave empty
+            return localStorage.getItem('gameServerUrl') || '';
         }
 
         // Initialize server URL
@@ -131,6 +157,9 @@
                 alert('Please enter a server URL');
                 return;
             }
+
+            // Save to localStorage for next time
+            localStorage.setItem('gameServerUrl', serverUrl);
 
             if (socket) {
                 socket.close();
@@ -180,7 +209,7 @@
             };
 
             socket.onerror = function(error) {
-                statusEl.textContent = 'Connection Error';
+                statusEl.textContent = 'Connection Error - Check server URL';
                 statusEl.className = 'error';
                 connectBtn.disabled = false;
             };
@@ -272,7 +301,7 @@
         setInterval(handleMovement, 1000 / 60); // 60 FPS
 
         // Auto-connect if running locally
-        if (getDefaultServerUrl()) {
+        if (getDefaultServerUrl() && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
             connectToServer();
         }
 
