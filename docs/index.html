@@ -67,7 +67,7 @@
     </div>
     <canvas id="gameCanvas" width="800" height="600"></canvas>
     <div class="controls">
-        Use arrow keys or WASD to move your dot
+        Use arrow keys or WASD to move • Mouse to aim • Spacebar to shoot
     </div>
 
 
@@ -80,11 +80,14 @@
         let socket;
         let myPlayerId = null;
         let players = {};
+        let projectiles = {};
         let myPlayer = { x: 400, y: 300 };
 
-        // Simple direct connection
+        // Dynamic server detection
         function getServerUrl() {
-            return ['ws://192.168.1.35:3000/ws'];
+            // Use the same host that served this HTML page
+            const host = window.location.host || '10.0.1.14:3000';
+            return [`ws://${host}/ws`];
         }
 
         // WebSocket connection with auto-retry
@@ -120,6 +123,7 @@
                     myPlayerId = message.data.playerId;
                 } else if (message.type === 'gameState') {
                     players = message.data.players;
+                    projectiles = message.data.projectiles || {};
                     
                     // Update our player reference
                     if (myPlayerId && players[myPlayerId]) {
@@ -158,6 +162,15 @@
             }
         }
 
+        function sendShoot(angle) {
+            if (socket && socket.readyState === WebSocket.OPEN) {
+                socket.send(JSON.stringify({
+                    type: 'shoot',
+                    data: { angle: angle }
+                }));
+            }
+        }
+
         function draw() {
             // Clear canvas
             ctx.fillStyle = '#111';
@@ -167,19 +180,65 @@
             for (const id in players) {
                 const player = players[id];
                 
+                // Skip dead players
+                if (player.hp <= 0) continue;
+                
+                // Draw player body
                 ctx.fillStyle = player.color;
                 ctx.beginPath();
                 ctx.arc(player.x, player.y, 15, 0, 2 * Math.PI);
                 ctx.fill();
 
+                // Draw cannon (pointing in the direction of angle)
+                const cannonLength = 20;
+                const cannonX = player.x + Math.cos(player.angle) * cannonLength;
+                const cannonY = player.y + Math.sin(player.angle) * cannonLength;
+                
+                ctx.strokeStyle = player.color;
+                ctx.lineWidth = 4;
+                ctx.beginPath();
+                ctx.moveTo(player.x, player.y);
+                ctx.lineTo(cannonX, cannonY);
+                ctx.stroke();
+
                 // Draw border for current player
                 if (id === myPlayerId) {
                     ctx.strokeStyle = '#fff';
-                    ctx.lineWidth = 3;
+                    ctx.lineWidth = 2;
                     ctx.beginPath();
                     ctx.arc(player.x, player.y, 18, 0, 2 * Math.PI);
                     ctx.stroke();
                 }
+
+                // Draw HP bar
+                const barWidth = 30;
+                const barHeight = 6;
+                const barX = player.x - barWidth / 2;
+                const barY = player.y - 30;
+                
+                // Background
+                ctx.fillStyle = '#333';
+                ctx.fillRect(barX, barY, barWidth, barHeight);
+                
+                // HP fill
+                const hpPercent = player.hp / player.maxHP;
+                ctx.fillStyle = hpPercent > 0.5 ? '#0f0' : hpPercent > 0.25 ? '#ff0' : '#f00';
+                ctx.fillRect(barX, barY, barWidth * hpPercent, barHeight);
+                
+                // HP border
+                ctx.strokeStyle = '#fff';
+                ctx.lineWidth = 1;
+                ctx.strokeRect(barX, barY, barWidth, barHeight);
+            }
+
+            // Draw projectiles
+            for (const id in projectiles) {
+                const projectile = projectiles[id];
+                
+                ctx.fillStyle = projectile.color;
+                ctx.beginPath();
+                ctx.arc(projectile.x, projectile.y, 3, 0, 2 * Math.PI);
+                ctx.fill();
             }
         }
 
@@ -224,7 +283,35 @@
             if (newX !== myPlayer.x || newY !== myPlayer.y) {
                 sendMove(newX, newY);
             }
+
+            // Handle shooting
+            if (keys[' '] && !keys.shootCooldown) {
+                // Calculate angle towards mouse or default direction
+                let angle = myPlayer.angle || 0;
+                sendShoot(angle);
+                
+                // Simple cooldown
+                keys.shootCooldown = true;
+                setTimeout(() => { keys.shootCooldown = false; }, 250); // 250ms cooldown
+            }
         }
+
+        // Mouse controls for aiming
+        canvas.addEventListener('mousemove', function(e) {
+            if (!myPlayer) return;
+            
+            const rect = canvas.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+            
+            // Calculate angle from player to mouse
+            const dx = mouseX - myPlayer.x;
+            const dy = mouseY - myPlayer.y;
+            const angle = Math.atan2(dy, dx);
+            
+            // Update our local player angle for visual feedback
+            myPlayer.angle = angle;
+        });
 
         // Game loop
         setInterval(handleMovement, 1000 / 60); // 60 FPS
