@@ -168,12 +168,7 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
-	rand.Seed(time.Now().UnixNano())
-
-	// Serve docs files
 	http.Handle("/", http.FileServer(http.Dir("./docs/")))
-
-	// WebSocket endpoint
 	http.HandleFunc("/ws", handleWebSocket)
 
 	// Start HTTP server
